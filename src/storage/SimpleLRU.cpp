@@ -82,6 +82,7 @@ bool SimpleLRU::Delete(const std::string& key)
 		{
 			_lru_index.insert({std::reference_wrapper<const std::string>(l->key), std::reference_wrapper<lru_node>(*l)});
 			_lru_head.reset(l);
+			l->prev = nullptr;
 			
 		}
 		else
@@ -90,6 +91,7 @@ bool SimpleLRU::Delete(const std::string& key)
 			l->next = std::move(_lru_head);
 			_lru_index.insert({std::reference_wrapper<const std::string>(l->key), std::reference_wrapper<lru_node>(*l)});
 			_lru_head.reset(l);
+			l->prev = nullptr;
 			
 		}
 	}
