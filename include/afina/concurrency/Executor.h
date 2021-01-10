@@ -74,7 +74,8 @@ public:
         auto exec = std::bind(std::forward<F>(func), std::forward<Types>(args)...);
 
         std::unique_lock<std::mutex> lock(this->cv_mutex);
-        if (state != State::kRun || cur_queue_size >= max_queue_size) {
+        if (state != State::kRun)
+        {
             return false;
         }
 
