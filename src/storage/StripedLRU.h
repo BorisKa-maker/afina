@@ -52,7 +52,7 @@ private:
     }
    
 };
-    StripedLRU* Make_stor(std::size_t count, std::size_t max_size = 2*1024*1024)
+    StripedLRU* Make_stor(std::size_t count, std::size_t max_size = 8*1024*1024)
     {
         std::size_t limit = max_size / count;
         if (limit < 2*1024*1024){
