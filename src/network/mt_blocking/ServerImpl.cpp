@@ -20,6 +20,7 @@
 #include <afina/Storage.h>
 #include <afina/execute/Command.h>
 #include <afina/logging/Service.h>
+#include <afina/concurrency/Executor.h>
 
 #include "protocol/Parser.h"
 
@@ -83,6 +84,7 @@ void ServerImpl::Start(uint16_t port, uint32_t n_accept, uint32_t n_workers=1) {
 void ServerImpl::Stop() {
     running.store(false);
     shutdown(_server_socket, SHUT_RDWR);
+    _max_worker = 0;
     std::lock_guard<std::mutex> lock(_cs_mutex);
     for (auto socket : _client_sockets) {
         shutdown(socket, SHUT_RD);
@@ -94,11 +96,12 @@ void ServerImpl::Join() {
 
     assert(_thread.joinable());
     _thread.join();
-
+    /*
     std::unique_lock<std::mutex> _lock(_mutex);
     while (_client_sockets.size()) {
         _cv.wait(_lock);
     }
+    */
 }
 
 // See Server.h
@@ -112,6 +115,10 @@ void ServerImpl::OnRun() {
     Protocol::Parser parser;
     std::string argument_for_command;
     std::unique_ptr<Execute::Command> command_to_execute;
+    std::function<void(const std::string &)> err_log = [&, this](const std::string &msg) {
+        return this->_logger->error(msg);
+    };
+    Afina::Concurrency::Executor executor{"ClientSockets", 16, err_log};
     while (running.load()) {
         _logger->debug("waiting for connection...");
 
@@ -147,9 +154,12 @@ void ServerImpl::OnRun() {
         // TODO: Start new thread and process data from/to connection
         {
             std::lock_guard<std::mutex> lock(_cs_mutex);
-            if (_client_sockets.size() < _max_worker) {
-                std::thread(&ServerImpl::Worker, this, client_socket).detach();
-                _client_sockets.insert(client_socket);
+            if (running.load()) {
+                if (!executor.Execute(&ServerImpl::Worker, this, client_socket)) {
+                    close(client_socket);
+                } else {
+                    _client_sockets.insert(client_socket);
+                }
             } else {
                 close(client_socket);
             }
@@ -184,8 +194,8 @@ void ServerImpl::Worker(int client_socket) {
                 if (!command_to_execute) {
                     std::size_t parsed = 0;
                     if (parser.Parse(client_buffer, readed_bytes, parsed)) {
-                        
-                        
+                        // There is no command to be launched, continue to parse input stream
+                        // Here we are, current chunk finished some command, process it
                         _logger->debug("Found new command: {} in {} bytes", parser.Name(), parsed);
                         command_to_execute = parser.Build(arg_remains);
                         if (arg_remains > 0) {
@@ -193,8 +203,8 @@ void ServerImpl::Worker(int client_socket) {
                         }
                     }
 
-                    
-                    
+                    // Parsed might fails to consume any bytes from input stream. In real life that could happens,
+                    // for example, because we are working with UTF-16 chars and only 1 byte left in stream
                     if (parsed == 0) {
                         break;
                     } else {
@@ -203,10 +213,10 @@ void ServerImpl::Worker(int client_socket) {
                     }
                 }
 
-                
+                // There is command, but we still wait for argument to arrive...
                 if (command_to_execute && arg_remains > 0) {
                     _logger->debug("Fill argument: {} bytes of {}", readed_bytes, arg_remains);
-                    
+                    // There is some parsed command, and now we are reading argument
                     std::size_t to_read = std::min(arg_remains, std::size_t(readed_bytes));
                     argument_for_command.append(client_buffer, to_read);
 
@@ -215,24 +225,25 @@ void ServerImpl::Worker(int client_socket) {
                     readed_bytes -= to_read;
                 }
 
-                
+                // Thre is command & argument - RUN!
                 if (command_to_execute && arg_remains == 0) {
                     _logger->debug("Start command execution");
 
                     std::string result;
                     command_to_execute->Execute(*pStorage, argument_for_command, result);
 
+                    // Send response
                     result += "\r\n";
                     if (send(client_socket, result.data(), result.size(), 0) <= 0) {
                         throw std::runtime_error("Failed to send response");
                     }
 
-                    
+                    // Prepare for the next command
                     command_to_execute.reset();
                     argument_for_command.resize(0);
                     parser.Reset();
                 }
-            } 
+            } // while (readed_bytes)
         }
 
         if (readed_bytes == 0) {
@@ -244,6 +255,7 @@ void ServerImpl::Worker(int client_socket) {
         _logger->error("Failed to process connection on descriptor {}: {}", client_socket, ex.what());
     }
 
+    // We are done with this connection
     std::lock_guard<std::mutex> lock(_cs_mutex);
     close(client_socket);
     _client_sockets.erase(client_socket);
