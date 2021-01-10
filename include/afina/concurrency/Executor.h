@@ -74,11 +74,13 @@ public:
         auto exec = std::bind(std::forward<F>(func), std::forward<Types>(args)...);
 
         std::unique_lock<std::mutex> lock(this->cv_mutex);
-        if (state != State::kRun)
         {
-            return false;
+            std::unique_lock<std::mutex> lock(this->mutex);
+            if (state != State::kRun || (threads.size() == high_watermark && cur_queue_size >= max_queue_size))
+            {
+                return false;
+            }
         }
-
         // Enqueue new task
         {
             std::unique_lock<std::mutex> lock(this->mutex);
