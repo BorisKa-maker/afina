@@ -122,7 +122,6 @@ bool SimpleLRU::Set(const std::string &key, const std::string &value) {
     }
 }
 
-// See MapBasedGlobalLockImpl.h
 bool SimpleLRU::Delete(const std::string &key) {
     auto tmp = _lru_index.find(key);
     if (tmp == _lru_index.end()) 
@@ -154,7 +153,6 @@ bool SimpleLRU::Delete(const std::string &key) {
     return true;
 }
 
-// See MapBasedGlobalLockImpl.h
 bool SimpleLRU::Get(const std::string &key, std::string &value) {
     auto node = _lru_index.find(key);
     if (node == _lru_index.end()) {
