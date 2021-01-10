@@ -213,7 +213,7 @@ void ServerImpl::Worker(int client_socket) {
                     }
                 }
 
-                // There is command, but we still wait for argument to arrive...
+                
                 if (command_to_execute && arg_remains > 0) {
                     _logger->debug("Fill argument: {} bytes of {}", readed_bytes, arg_remains);
                     // There is some parsed command, and now we are reading argument
@@ -225,25 +225,25 @@ void ServerImpl::Worker(int client_socket) {
                     readed_bytes -= to_read;
                 }
 
-                // Thre is command & argument - RUN!
+                
                 if (command_to_execute && arg_remains == 0) {
                     _logger->debug("Start command execution");
 
                     std::string result;
                     command_to_execute->Execute(*pStorage, argument_for_command, result);
 
-                    // Send response
+                    
                     result += "\r\n";
                     if (send(client_socket, result.data(), result.size(), 0) <= 0) {
                         throw std::runtime_error("Failed to send response");
                     }
 
-                    // Prepare for the next command
+                    
                     command_to_execute.reset();
                     argument_for_command.resize(0);
                     parser.Reset();
                 }
-            } // while (readed_bytes)
+            } 
         }
 
         if (readed_bytes == 0) {
