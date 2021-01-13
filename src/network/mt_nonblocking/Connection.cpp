@@ -34,11 +34,12 @@ void Connection::DoRead() {
 	Protocol::Parser parser;
 	std::string argument_for_command;
 	try {
-		int readed_bytes = -1;
-		while ((readed_bytes = read(_socket, client_buffer + now_pos, sizeof(client_buffer) - now_pos)) > 0) {
-			_logger->debug("Got {} bytes from socket", readed_bytes);
-			now_pos += readed_bytes;
-            while (now_pos > 0) {
+	    int readed_bytes = -1;
+	    while ((readed_bytes = read(_socket, client_buffer + now_pos, sizeof(client_buffer) - now_pos)) > 0)
+	    {
+		_logger->debug("Got {} bytes from socket", readed_bytes);
+		now_pos += readed_bytes;
+            	while (now_pos > 0) {
                 _logger->debug("Process {} bytes", now_pos);
                 if (!command_to_execute) {
                     std::size_t parsed = 0;
@@ -109,35 +110,38 @@ void Connection::DoRead() {
 
 		
 void Connection::DoWrite() {
-	std::lock_guard<std::mutex> lock(_mutex);
-        _logger->debug("Writing on socket {}", _socket);
-	static constexpr size_t max_buffer = 64;
-	iovec write_vec[max_buffer];
+    std::lock_guard<std::mutex> lock(_mutex);
+    _logger->debug("Writing on socket {}", _socket);
+    static constexpr size_t max_buffer = 64;
+    iovec write_vec[max_buffer];
     size_t write_vec_v = 0;
-    try {
-		auto it = buffer.begin();
+    try 
+    {
+	auto it = buffer.begin();
         write_vec[write_vec_v].iov_base = &((*it)[0]) + shift;
-		write_vec[write_vec_v].iov_len = it->size() - shift;
+	write_vec[write_vec_v].iov_len = it->size() - shift;
         it++;
         write_vec_v++;
-		for (; it != buffer.end(); it++) {
+	for (; it != buffer.end(); it++) {
             write_vec[write_vec_v].iov_base = &((*it)[0]);
             write_vec[write_vec_v].iov_len = it->size();
             if (++write_vec_v > max_buffer) {
                 break;
             }
         }
-		int writed = 0;
+	int writed = 0;
         if ((writed = writev(_socket, write_vec, write_vec_v)) >= 0) {
-			size_t i = 0;
-			while (i < write_vec_v && writed >= write_vec[i].iov_len) {
+		size_t i = 0;
+		while (i < write_vec_v && writed >= write_vec[i].iov_len) 
+		{
 
-				buffer.pop_front();
-				writed -= write_vec[i].iov_len;
-				i++;
-			}
-			shift = writed;
-		} else {
+			buffer.pop_front();
+			writed -= write_vec[i].iov_len;
+			i++;
+		}
+		shift = writed;
+		} else 
+		{
 			throw std::runtime_error("Failed to send response");
 		}
         if (buffer.empty()) {
