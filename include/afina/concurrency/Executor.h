@@ -173,7 +173,6 @@ private:
     std::string _name;
     size_t cur_queue_size = 0;
     size_t worked_threads = 0;
-    std::function<void(const std::string &msg)> log_err;
 };
 
 } // namespace Concurrency
