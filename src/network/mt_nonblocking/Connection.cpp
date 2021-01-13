@@ -149,7 +149,7 @@ void Connection::DoWrite() {
     } catch (std::runtime_error &ex) {
         if (errno != EAGAIN) {
             _logger->error("Failed to write connection on descriptor {}: {}", _socket, ex.what());
-			running.store(false);
+	    running.store(false);
         }
 	}
 }
