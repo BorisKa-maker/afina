@@ -13,7 +13,7 @@ void Connection::Start() {
     _logger->debug("Connection on {} socket started", _socket);
     _event.events = EPOLLIN | EPOLLRDHUP | EPOLLERR;
     running.store(true);
-	shift = 0;
+    shift = 0;
 }
 // See Connection.h
 void Connection::OnError() {
@@ -29,7 +29,7 @@ void Connection::OnClose() {
 
 // See Connection.h
 void Connection::DoRead() {	
-	std::atomic_thread_fence(std::memory_order_acquire);
+	std::lock_guard<std::mutex> lock(_mutex);
 	std::size_t arg_remains=0;
 	Protocol::Parser parser;
 	std::string argument_for_command;
@@ -91,23 +91,26 @@ void Connection::DoRead() {
         }
         if (readed_bytes == 0) {
             _logger->debug("Connection closed");
-			running.store(false);
-        } else {
+	    running.store(false);
+        } 
+        else 
+	{
             throw std::runtime_error(std::string(strerror(errno)));
         }
-    } catch (std::runtime_error &ex) {
+    }    
+    catch (std::runtime_error &ex)
+    {
         if (errno != EAGAIN) {
             _logger->error("Failed to read connection on descriptor {}: {}", _socket, ex.what());
-			running.store(false);
-        }
+	    running.store(false);
+     }
 	}
-	std::atomic_thread_fence(std::memory_order_release);
 }
 
 		
 void Connection::DoWrite() {
-	std::atomic_thread_fence(std::memory_order_acquire);
-    _logger->debug("Writing on socket {}", _socket);
+	std::lock_guard<std::mutex> lock(_mutex);
+        _logger->debug("Writing on socket {}", _socket);
 	static constexpr size_t max_buffer = 64;
 	iovec write_vec[max_buffer];
     size_t write_vec_v = 0;
@@ -149,7 +152,6 @@ void Connection::DoWrite() {
 			running.store(false);
         }
 	}
-	std::atomic_thread_fence(std::memory_order_release);
 }
 
 } // namespace MTnonblock
