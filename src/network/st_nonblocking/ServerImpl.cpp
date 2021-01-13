@@ -147,14 +147,18 @@ void ServerImpl::OnRun() {
 
             // That is some connection!
             Connection *pc = static_cast<Connection *>(current_event.data.ptr);
-			connection_set.insert(pc);
+	    connection_set.insert(pc);
 
             auto old_mask = pc->_event.events;
-            if ((current_event.events & EPOLLERR) || (current_event.events & EPOLLHUP)) {
+            if ((current_event.events & EPOLLERR) || (current_event.events & EPOLLHUP))
+	    {
                 pc->OnError();
-            } else if (current_event.events & EPOLLRDHUP) {
+            } 
+	    else if (current_event.events & EPOLLRDHUP)
+	    {
                 pc->OnClose();
-            } else {
+            } 
+	    else {
                 // Depends on what connection wants...
                 if (current_event.events & EPOLLIN) {
                     pc->DoRead();
