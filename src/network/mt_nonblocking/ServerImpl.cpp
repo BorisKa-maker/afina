@@ -222,10 +222,13 @@ void ServerImpl::OnRun() {
                         close(pc->_socket);
 						pc->OnError();
                         delete pc;
-                    }else{
-						std::lock_guard<std::mutex> lock(_mutex);
-						connection_set.insert(pc);
-					}
+                    }
+		else
+		{
+			std::lock_guard<std::mutex> lock(_mutex);
+			connection_set.insert(pc);
+					
+		}
                 }
             }
         }
@@ -235,7 +238,8 @@ void ServerImpl::OnRun() {
 
 void ServerImpl::clear_cs(){
 	std::lock_guard<std::mutex> lock(_mutex);
-	for(auto &it: connection_set){
+	for(auto &it: connection_set)
+	{
 		close(it->_socket);
 		delete it;
 	}
