@@ -91,7 +91,7 @@ void ServerImpl::Start(uint16_t port, uint32_t n_acceptors, uint32_t n_workers) 
 // See Server.h
 void ServerImpl::Stop() {
     _logger->warn("Stop network service");
-	for (auto c : connection_set){
+    for (auto c : connection_set){
         shutdown(c->_socket, SHUT_WR);
     }
     // Wakeup threads that are sleep on epoll_wait
@@ -102,7 +102,6 @@ void ServerImpl::Stop() {
 
 // See Server.h
 void ServerImpl::Join() {
-    // Wait for work to be complete
     _work_thread.join();
 }
 
@@ -189,11 +188,12 @@ void ServerImpl::OnRun() {
         }
     }
 	for (auto c : connection_set){
-        close(c->_socket);
-        c->OnClose();
-        delete c;
+		
+		close(c->_socket);
+		c->OnClose();
+		delete c;
     }
-	connection_set.clear();
+    connection_set.clear();
     _logger->warn("Acceptor stopped");
 }
 
