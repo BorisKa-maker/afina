@@ -53,7 +53,6 @@ private:
     std::unique_ptr<Execute::Command> command_to_execute;
     char client_buffer[4096];
     std::deque<std::string> buffer;
-    bool _eof{false};
     int now_pos;
     size_t shift;
     size_t N = 64;
