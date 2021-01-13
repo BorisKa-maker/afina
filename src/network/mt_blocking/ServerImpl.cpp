@@ -119,6 +119,7 @@ void ServerImpl::OnRun() {
         return this->_logger->error(msg);
     };
     Afina::Concurrency::Executor executor{"ClientSockets", 16, err_log};
+    executor.MakePool();
     while (running.load()) {
         _logger->debug("waiting for connection...");
 
