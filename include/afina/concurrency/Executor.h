@@ -30,10 +30,11 @@ public:
         kStopped
     };
 
-    Executor(std::string name, int size, std::function<void(const std::string &msg)> &log_err_, size_t min_threads = 2, size_t max_threads = 4, size_t wt_time = 3000)
+    Executor(std::string name, int size, size_t min_threads = 2, size_t max_threads = 4, size_t wt_time = 3000)
         : _name(std::move(name)), max_queue_size(size), low_watermark(min_threads), high_watermark(max_threads),
-          wt_time(wt_time) {
-        log_err = log_err_;
+          wt_time(wt_time) {}
+    void Start()
+    {
         std::unique_lock<std::mutex> lock(this->mutex);
         for (int i = 0; i < low_watermark; ++i) {
             threads.emplace_back(std::thread([this] { return thread_worker(this); }));
@@ -50,7 +51,6 @@ public:
      */
     void Stop(bool await = false) {
         std::unique_lock<std::mutex> lock(this->mutex);
-        std::unique_lock<std::mutex> _lock(this->cv_mutex);
         state = State::kStopping;
         empty_condition.notify_all();
         _lock.unlock();
@@ -72,8 +72,6 @@ public:
     template <typename F, typename... Types> bool Execute(F &&func, Types... args) {
         // Prepare "task"
         auto exec = std::bind(std::forward<F>(func), std::forward<Types>(args)...);
-
-        std::unique_lock<std::mutex> lock(this->cv_mutex);
         {
             std::unique_lock<std::mutex> lock(this->mutex);
             if (state != State::kRun || (threads.size() == high_watermark && cur_queue_size >= max_queue_size))
@@ -105,7 +103,7 @@ private:
      * Main function that all pool threads are running. It polls internal task queue and execute tasks
      */
     friend void thread_worker(Executor *executor) {
-        std::unique_lock<std::mutex> cv_lock(executor->cv_mutex);
+        std::unique_lock<std::mutex> cv_lock(executor->mutex);
         auto now = std::chrono::system_clock::now();
         while (executor->state == Executor::State::kRun) {
             std::function<void()> task;
@@ -114,8 +112,8 @@ private:
                     auto wake_stat = executor->empty_condition.wait_until(
                         cv_lock, now + std::chrono::milliseconds(executor->wt_time));
                     if (executor->state != Executor::State::kRun ||
-                        executor->tasks.empty() && executor->threads.size() > executor->low_watermark &&
-                        wake_stat == std::cv_status::timeout) {
+                        (executor->tasks.empty() && executor->threads.size() > executor->low_watermark &&
+                        wake_stat == std::cv_status::timeout)) {
                         if (executor->state != Executor::State::kStopping) {
                             std::unique_lock<std::mutex> lock(executor->mutex);
                             auto this_thread_id = std::this_thread::get_id();
@@ -124,7 +122,10 @@ private:
                                              [this_thread_id](std::thread &x) { return x.get_id() == this_thread_id; });
                             executor->threads.erase(it);
                         }
-                        return;
+                        if (executor->state == Executor::State::kStopped || (executor->state == Executor::State::kStopping && executor->tasks.empty()))
+                        {
+                            return;
+                        }
                     }
                 }
                 task = std::move(executor->tasks.front());
@@ -136,7 +137,7 @@ private:
             try{
                 task();
             }catch (...) {
-                executor->log_err("Task exception");
+                std::terminate();
             }
             cv_lock.lock();
             executor->worked_threads--;
@@ -172,7 +173,6 @@ private:
     std::string _name;
     size_t cur_queue_size = 0;
     size_t worked_threads = 0;
-    std::mutex cv_mutex;
     std::function<void(const std::string &msg)> log_err;
 };
 
