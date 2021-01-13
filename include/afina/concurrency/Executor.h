@@ -33,7 +33,7 @@ public:
     Executor(std::string name, int size, size_t min_threads = 2, size_t max_threads = 4, size_t wt_time = 3000)
         : _name(std::move(name)), max_queue_size(size), low_watermark(min_threads), high_watermark(max_threads),
           wt_time(wt_time) {}
-    void Start()
+    void MakePool()
     {
         std::unique_lock<std::mutex> lock(this->mutex);
         for (int i = 0; i < low_watermark; ++i) {
