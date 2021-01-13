@@ -54,8 +54,8 @@ private:
     std::deque<std::string> buffer;
     bool _eof{false};
     int now_pos;
-	size_t shift;
-	size_t N = 64;
+    size_t shift;
+    size_t N = 64;
 };
 
 } // namespace STnonblock
