@@ -41,11 +41,11 @@ protected:
 
 private:
     friend class ServerImpl;
-	friend class Worker;
+    friend class Worker;
 
     int _socket;
     struct epoll_event _event;
-    std::atomic<bool> running;
+    bool running;
 
     std::shared_ptr<spdlog::logger> _logger;
     std::shared_ptr<Afina::Storage> pStorage;
@@ -55,9 +55,9 @@ private:
     std::deque<std::string> buffer;
     bool _eof{false};
     int now_pos;
-	size_t shift;
-	size_t N = 64;
-	std::mutex _mutex;
+    size_t shift;
+    size_t N = 64;
+    std::mutex _mutex;
 	
 };
 
