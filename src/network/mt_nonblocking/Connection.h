@@ -45,7 +45,7 @@ private:
 
     int _socket;
     struct epoll_event _event;
-    bool running;
+    std::atomic<bool> running;
 
     std::shared_ptr<spdlog::logger> _logger;
     std::shared_ptr<Afina::Storage> pStorage;
