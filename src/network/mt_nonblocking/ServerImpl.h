@@ -38,16 +38,15 @@ public:
     // See Server.h
     void Join() override;
 	
-	void clear_cs();
-	bool is_last();
-	void dec_work_cnt();
-        void er(Connection *);
+    void clear_cs();
+    bool is_last();
+    void dec_work_cnt();
+    void er(Connection *);
 
     protected:
         void OnRun();
         void OnNewConnection();
-
-    private:
+private:
         // logger to use
         std::shared_ptr<spdlog::logger> _logger;
 
