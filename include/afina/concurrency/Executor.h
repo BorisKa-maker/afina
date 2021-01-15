@@ -53,13 +53,15 @@ public:
         std::unique_lock<std::mutex> lock(this->mutex);
         state = State::kStopping;
         empty_condition.notify_all();
-        _lock.unlock();
         for (auto &thread : threads) {
             if (await) {
                 thread.join();
             }
         }
+        if (threads.empty())
+        {
         state = State::kStopped;
+        }
     };
 
     /**
@@ -102,47 +104,40 @@ private:
     /**
      * Main function that all pool threads are running. It polls internal task queue and execute tasks
      */
-    friend void thread_worker(Executor *executor) {
-        std::unique_lock<std::mutex> cv_lock(executor->mutex);
-        auto now = std::chrono::system_clock::now();
-        while (executor->state == Executor::State::kRun) {
-            std::function<void()> task;
-            {
-                while (executor->tasks.empty()) {
-                    auto wake_stat = executor->empty_condition.wait_until(
-                        cv_lock, now + std::chrono::milliseconds(executor->wt_time));
-                    if (executor->state != Executor::State::kRun ||
-                        (executor->tasks.empty() && executor->threads.size() > executor->low_watermark &&
-                        wake_stat == std::cv_status::timeout)) {
-                        if (executor->state != Executor::State::kStopping) {
-                            std::unique_lock<std::mutex> lock(executor->mutex);
-                            auto this_thread_id = std::this_thread::get_id();
-                            auto it =
-                                std::find_if(executor->threads.begin(), executor->threads.end(),
-                                             [this_thread_id](std::thread &x) { return x.get_id() == this_thread_id; });
-                            executor->threads.erase(it);
-                        }
-                        if (executor->state == Executor::State::kStopped || (executor->state == Executor::State::kStopping && executor->tasks.empty()))
-                        {
-                            return;
-                        }
-                    }
+    friend void thread_worker(Executor *executor) 
+    {
+        std::unique_lock<std::mutex> lock(executor->mutex);
+        while (executor->state == Executor::State::kRun){
+            if (executor->tasks.empty()){
+                auto start = std::chrono::steady_clock::now();
+                auto result = executor->empty_condition.wait_until(lock, start + std::chrono::milliseconds(executor->wt_time));
+                if (result == std::cv_status::timeout && executor->threads.size() > executor->low_watermark){
+                    break;
+                } else {
+                    continue;
                 }
-                task = std::move(executor->tasks.front());
-                executor->tasks.pop_front();
-                executor->cur_queue_size--;
-                executor->worked_threads++;
             }
-            cv_lock.unlock();
-            try{
-                task();
-            }catch (...) {
-                std::terminate();
-            }
-            cv_lock.lock();
-            executor->worked_threads--;
+        auto task = std::move(executor->tasks.front());
+        executor->tasks.pop_front();
+        executor->cur_queue_size--;
+        executor->worked_threads++;
+        lock.unlock();
+        try {
+            task();
+        } catch (...) {
+             std::terminate();;    
         }
+        lock.lock();
+        executor->worked_threads--;
     }
+    auto this_thread = std::this_thread::get_id();
+    auto it = std::find_if(executor->threads.begin(), executor->threads.end(), [this_thread](std::thread &x){return x.get_id() == this_thread; });
+    executor->threads.erase(it);
+    if (executor->threads.empty()){
+        executor->empty_condition.notify_all();
+    }
+    
+}
     /**
      * Mutex to protect state below from concurrent modification
      */
