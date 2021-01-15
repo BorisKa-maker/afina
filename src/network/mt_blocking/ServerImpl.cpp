@@ -118,7 +118,7 @@ void ServerImpl::OnRun() {
     std::function<void(const std::string &)> err_log = [&, this](const std::string &msg) {
         return this->_logger->error(msg);
     };
-    Afina::Concurrency::Executor executor{"ClientSockets", 16, err_log};
+    Afina::Concurrency::Executor executor{"ClientSockets", 16};
     executor.MakePool();
     while (running.load()) {
         _logger->debug("waiting for connection...");
