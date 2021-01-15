@@ -122,12 +122,10 @@ void Connection::DoWrite() {
 	write_vec[write_vec_v].iov_len = it->size() - shift;
         it++;
         write_vec_v++;
-	for (; it != buffer.end(); it++) {
+	for (; it != buffer.end() && ++write_vec_v <= max_buffer; it++) {
             write_vec[write_vec_v].iov_base = &((*it)[0]);
             write_vec[write_vec_v].iov_len = it->size();
-            if (++write_vec_v > max_buffer) {
-                break;
-            }
+
         }
 	int writed = 0;
         if ((writed = writev(_socket, write_vec, write_vec_v)) >= 0) {
@@ -147,7 +145,8 @@ void Connection::DoWrite() {
         if (buffer.empty()) {
             _event.events &= ~EPOLLOUT;
         }
-		if (buffer.size() <= N){
+		if (buffer.size() <= N)
+		{
 			_event.events |= EPOLLIN;
 		}
     } catch (std::runtime_error &ex) {
