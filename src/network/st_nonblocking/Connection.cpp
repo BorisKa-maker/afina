@@ -27,10 +27,7 @@ void Connection::OnClose() {
 
 // See Connection.h
 void Connection::DoRead() {
-	if (buffer.size() > N)
-	{
-	    _event.events = ~EPOLLIN;
-	}
+	
 	std::size_t arg_remains=0;
 	Protocol::Parser parser;
 	std::string argument_for_command;
@@ -77,7 +74,10 @@ void Connection::DoRead() {
 
 					result += "\r\n";
 					buffer.push_back(result);
-
+					if (buffer.size() > N)
+					{
+						_event.events = ~EPOLLIN;
+					}
 					if (buffer.size() > 0) {
 					    _event.events |= EPOLLOUT;
 					}
@@ -115,14 +115,11 @@ void Connection::DoWrite() {
 		write_vec[write_vec_v].iov_len = it->size() - shift;
 		it++;
 		write_vec_v++;
-		for (; it != buffer.end(); it++)
+		for (; it != buffer.end() && write_vec_v < max_buffer; it++)
 		{
 		    write_vec[write_vec_v].iov_base = &((*it)[0]);
 		    write_vec[write_vec_v].iov_len = it->size();
-		    if (++write_vec_v > max_buffer)
-		    {
-			break;
-		    }
+		    write_vec_v++;
         	}
 		int writed = 0;
         	if ((writed = writev(_socket, write_vec, write_vec_v)) >= 0)
