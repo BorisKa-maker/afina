@@ -121,17 +121,17 @@ void Connection::DoWrite() {
 		    write_vec[write_vec_v].iov_len = it->size();
 		    write_vec_v++;
         	}
-		int writed = 0;
-        	if ((writed = writev(_socket, write_vec, write_vec_v)) >= 0)
+		int writing = 0;
+        	if ((writing = writev(_socket, write_vec, write_vec_v)) >= 0)
 		{
 			size_t i = 0;
-			while (i < write_vec_v && writed >= write_vec[i].iov_len) {
+			while (i < write_vec_v && writing >= write_vec[i].iov_len) {
 
 				buffer.pop_front();
-				writed -= write_vec[i].iov_len;
+				writing -= write_vec[i].iov_len;
 				i++;
 			}
-			shift = writed;
+			shift = writing;
 		} 
 	    	else 
 		{
